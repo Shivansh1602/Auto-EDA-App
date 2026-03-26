@@ -153,7 +153,7 @@ def show_outliers(df):
 
 # ── 6. Data Cleaning Panel ────────────────────────────────────────────
 def show_cleaning_panel(df):
-    st.subheader("🧹 Data Cleaning Panel")
+    st.subheader(" Data Cleaning Panel")
     cleaned_df = df.copy()
 
     col1, col2 = st.columns(2)
