@@ -4,9 +4,7 @@ numpy
 matplotlib
 seaborn
 missingno
-ydata-profiling
 openpyxl
 xlrd
 scipy
 plotly
-streamlit-pandas-profiling
