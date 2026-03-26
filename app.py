@@ -2,23 +2,22 @@ import streamlit as st
 from utils.file_loader import load_file
 from utils.eda_core import (
     show_overview, show_missing,
-    show_univariate, show_correlation, show_outliers
+    show_univariate, show_correlation,
+    show_outliers, show_cleaning_panel,
+    show_ml_recommender
 )
 
-# ── Page Config ───────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AutoEDA",
-    page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("🔬 AutoEDA — Automated Exploratory Data Analysis")
+st.title("AutoEDA — Automated Exploratory Data Analysis")
 st.markdown("Upload any file and get instant EDA. Supports **CSV, Excel, JSON, XML**.")
 
-# ── Sidebar ───────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("📁 Upload File")
+    st.header("Upload File")
     uploaded_file = st.file_uploader(
         "Drop your file here",
         type=["csv", "xlsx", "xls", "json", "xml"]
@@ -28,21 +27,22 @@ with st.sidebar:
     st.header("Analysis Sections")
     sections = {
         "Overview": st.checkbox("Overview", value=True),
-        "Missing Values": st.checkbox(" Missing Values", value=True),
+        "Missing Values": st.checkbox("Missing Values", value=True),
         "Univariate": st.checkbox("Univariate Analysis", value=True),
         "Correlation": st.checkbox("Correlation", value=True),
         "Outliers": st.checkbox("Outliers", value=True),
+        "Cleaning": st.checkbox("Data Cleaning", value=True),
+        "ML Recommender": st.checkbox("ML Recommender", value=True),
     }
 
     st.markdown("---")
-    st.markdown("Built with using Streamlit")
+    st.markdown("Built with Streamlit")
 
-# ── Main Logic ────────────────────────────────────────────────────────
 if uploaded_file is not None:
     df = load_file(uploaded_file)
 
     if df is not None:
-        st.success(f"Loaded **{uploaded_file.name}** — {df.shape[0]} rows × {df.shape[1]} columns")
+        st.success(f"Loaded **{uploaded_file.name}** — {df.shape[0]} rows x {df.shape[1]} columns")
         st.markdown("---")
 
         if sections["Overview"]:
@@ -63,9 +63,16 @@ if uploaded_file is not None:
 
         if sections["Outliers"]:
             show_outliers(df)
+            st.markdown("---")
 
-        # ── Download Cleaned Data ─────────────────────────────────────
-        st.markdown("---")
+        if sections["Cleaning"]:
+            show_cleaning_panel(df)
+            st.markdown("---")
+
+        if sections["ML Recommender"]:
+            show_ml_recommender(df)
+            st.markdown("---")
+
         st.subheader("Download Processed Data")
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(

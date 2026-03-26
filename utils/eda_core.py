@@ -150,3 +150,149 @@ def show_outliers(df):
     fig = px.box(df, y=selected, title=f"Box Plot — {selected}",
                  template="plotly_white", points="outliers")
     st.plotly_chart(fig, use_container_width=True)
+
+# ── 6. Data Cleaning Panel ────────────────────────────────────────────
+def show_cleaning_panel(df):
+    st.subheader("🧹 Data Cleaning Panel")
+    cleaned_df = df.copy()
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Drop duplicates
+        st.markdown("#### Remove Duplicates")
+        dup_count = cleaned_df.duplicated().sum()
+        st.write(f"Duplicate rows found: **{dup_count}**")
+        if dup_count > 0:
+            if st.button(" Drop Duplicate Rows"):
+                cleaned_df = cleaned_df.drop_duplicates()
+                st.success(f"Dropped {dup_count} duplicate rows!")
+
+        # Drop missing values
+        st.markdown("#### Handle Missing Values")
+        strategy = st.selectbox("Choose strategy:", [
+            "Drop rows with any null",
+            "Drop rows with all null",
+            "Fill with Mean (numeric only)",
+            "Fill with Median (numeric only)",
+            "Fill with Mode",
+            "Fill with custom value"
+        ])
+
+        if strategy == "Fill with custom value":
+            custom_val = st.text_input("Enter fill value:")
+
+        if st.button("Apply Missing Value Strategy"):
+            if strategy == "Drop rows with any null":
+                cleaned_df = cleaned_df.dropna()
+            elif strategy == "Drop rows with all null":
+                cleaned_df = cleaned_df.dropna(how="all")
+            elif strategy == "Fill with Mean (numeric only)":
+                cleaned_df = cleaned_df.fillna(cleaned_df.select_dtypes(include=np.number).mean())
+            elif strategy == "Fill with Median (numeric only)":
+                cleaned_df = cleaned_df.fillna(cleaned_df.select_dtypes(include=np.number).median())
+            elif strategy == "Fill with Mode":
+                cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+            elif strategy == "Fill with custom value" and custom_val:
+                cleaned_df = cleaned_df.fillna(custom_val)
+            st.success("Applied! Preview below 👇")
+
+    with col2:
+        # Drop columns
+        st.markdown("#### Drop Columns")
+        cols_to_drop = st.multiselect("Select columns to drop:", cleaned_df.columns.tolist())
+        if cols_to_drop:
+            if st.button("Drop Selected Columns"):
+                cleaned_df = cleaned_df.drop(columns=cols_to_drop)
+                st.success(f"Dropped: {cols_to_drop}")
+
+        # Fix dtypes
+        st.markdown("#### Fix Data Types")
+        col_to_fix = st.selectbox("Select column:", cleaned_df.columns.tolist())
+        new_type = st.selectbox("Convert to:", ["int", "float", "str", "datetime"])
+        if st.button(" Convert Type"):
+            try:
+                if new_type == "datetime":
+                    cleaned_df[col_to_fix] = pd.to_datetime(cleaned_df[col_to_fix])
+                else:
+                    cleaned_df[col_to_fix] = cleaned_df[col_to_fix].astype(new_type)
+                st.success(f"Converted {col_to_fix} to {new_type}!")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    # Preview
+    st.markdown("#### Cleaned Data Preview")
+    st.write(f"Shape: {cleaned_df.shape[0]} rows × {cleaned_df.shape[1]} columns")
+    st.dataframe(cleaned_df.head(), use_container_width=True)
+
+    # Download
+    csv = cleaned_df.to_csv(index=False).encode("utf-8")
+    st.download_button("Download Cleaned Data", data=csv,
+                       file_name="cleaned_data.csv", mime="text/csv")
+
+    return cleaned_df
+# ── 7. ML Model Recommender ───────────────────────────────────────────
+def show_ml_recommender(df):
+    st.subheader("ML Model Recommender")
+
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+    cat_cols = df.select_dtypes(include=["object", "category"]).columns.tolist()
+    n_rows, n_cols = df.shape
+    missing_pct = (df.isnull().sum().sum() / (n_rows * n_cols)) * 100
+
+    st.markdown("#### Select Target Column")
+    target = st.selectbox("Which column do you want to predict?", df.columns.tolist())
+
+    target_dtype = df[target].dtype
+    n_unique = df[target].nunique()
+
+    if n_unique == 2:
+        problem_type = "Binary Classification"
+    elif n_unique <= 20 and (target_dtype == "object" or n_unique / n_rows < 0.05):
+        problem_type = "Multi-class Classification"
+    else:
+        problem_type = "Regression"
+
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Problem Type", problem_type)
+    col2.metric("Dataset Size", f"{n_rows} rows")
+    col3.metric("Missing Data", f"{missing_pct:.1f}%")
+
+    st.markdown("#### Recommended Models")
+
+    if problem_type in ["Binary Classification", "Multi-class Classification"]:
+        recommendations = [
+            {"Model": "Logistic Regression", "When to Use": "Small dataset, linearly separable", "Complexity": "Low"},
+            {"Model": "Random Forest", "When to Use": "General purpose, handles missing values", "Complexity": "Medium"},
+            {"Model": "XGBoost", "When to Use": "Large dataset, high accuracy needed", "Complexity": "High"},
+            {"Model": "SVM", "When to Use": "High dimensional data", "Complexity": "Medium"},
+            {"Model": "KNN", "When to Use": "Small dataset, simple baseline", "Complexity": "Low"},
+        ]
+    else:
+        recommendations = [
+            {"Model": "Linear Regression", "When to Use": "Linear relationships, small dataset", "Complexity": "Low"},
+            {"Model": "Ridge / Lasso", "When to Use": "Multicollinearity present", "Complexity": "Low"},
+            {"Model": "Random Forest Regressor", "When to Use": "Non-linear relationships", "Complexity": "Medium"},
+            {"Model": "XGBoost Regressor", "When to Use": "Large dataset, best accuracy", "Complexity": "High"},
+            {"Model": "SVR", "When to Use": "Small to medium dataset", "Complexity": "Medium"},
+        ]
+
+    st.dataframe(pd.DataFrame(recommendations), use_container_width=True)
+
+    st.markdown("#### Dataset Health Summary")
+    health = []
+    if missing_pct > 20:
+        health.append("High missing data detected — handle nulls before training")
+    if n_rows < 500:
+        health.append("Small dataset — prefer simpler models like Logistic Regression or KNN")
+    if n_rows > 50000:
+        health.append("Large dataset — XGBoost or ensemble methods will perform best")
+    if len(cat_cols) > len(numeric_cols):
+        health.append("Many categorical columns — apply encoding before training")
+    if not health:
+        health.append("Dataset looks healthy — good to go for model training!")
+
+    for tip in health:
+        st.info(tip)
+
